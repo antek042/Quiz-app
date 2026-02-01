@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz - General Knowledge</title>
+    <link rel="stylesheet" href="/static/index.css"/>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Quiz - General Knowledge</h1>
+        
+        <div class="input-section active">
+            <div class="input-group">
+                <label for="apiKey">OpenRouter API Key:</label>
+                <input type="text" id="apiKey" placeholder="sk-or-v1-..." value="">
+            </div>
+            
+            <div class="input-group">
+                <label for="modelSelect">Model:</label>
+                <input type="text" id="modelSelect" value="tngtech/deepseek-r1t2-chimera:free">
+            </div>
+            
+            <div class="input-group">
+                <label for="questionCount">Number of questions:</label>
+                <input type="number" id="questionCount" min="1" max="20" value="5">
+            </div>
+            
+            <button onclick="startQuiz()">Start the Quiz</button>
+        </div>
+
+        <div class="progress" id="progress"></div>
+
+        <div class="loading" id="loading" style="display: none;">⏳ Loading questions...</div>
+
+        <div class="question-container" id="quizContainer">
+            <div class="question" id="questionContent"></div>
+            <div class="answers" id="answersContent"></div>
+            <div class="feedback" id="feedback"></div>
+            <div class="buttons">
+                <button class="btn-next" id="btnNext" onclick="nextQuestion()">Next →</button>
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <h2>End of quiz!</h2>
+            <div class="score" id="scoreDisplay"></div>
+            <div class="score-text" id="scoreText"></div>
+            <button class="btn-restart active" onclick="location.reload()">Try again</button>
+        </div>
+    </div>
+
+    <script>
+        let questions = [];
+        let currentQuestion = 0;
+        let score = 0;
+        let answered = false;
+
+        async function startQuiz() {
+            const count = parseInt(document.getElementById('questionCount').value) || 5;
+            const apiKey = document.getElementById('apiKey').value.trim();
+            const model = document.getElementById('modelSelect').value;
+            
+            if (!apiKey) {
+                alert('Please provide API Key!');
+                return;
+            }
+            
+            document.querySelector('.input-section').classList.remove('active');
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                const response = await fetch(`/api/questions/${count}?api_key=${encodeURIComponent(apiKey)}&model=${encodeURIComponent(model)}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    document.querySelector('.input-section').classList.add('active');
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
+                
+                if (data.questions) {
+                    questions = data.questions;
+                    currentQuestion = 0;
+                    score = 0;
+                    answered = false;
+                    
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('quizContainer').classList.add('active');
+                    showQuestion();
+                } else {
+                    alert('Error: Failed to load questions');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error loading questions: ' + error.message);
+            }
+        }
+
+        function showQuestion() {
+            if (currentQuestion >= questions.length) {
+                showResults();
+                return;
+            }
+
+            const question = questions[currentQuestion];
+            answered = false;
+
+            document.getElementById('progress').textContent = 
+                `Question ${currentQuestion + 1} of ${questions.length}`;
+
+            document.getElementById('questionContent').innerHTML = 
+                `<h2>${question.question}</h2>`;
+
+            const answersHtml = Object.entries(question.answers)
+                .map(([key, value]) => 
+                    `<button class="answer-btn" onclick="selectAnswer('${key}', '${question.correct_answer}')">
+                        <strong>${key.toUpperCase()})</strong> ${value}
+                    </button>`
+                ).join('');
+
+            document.getElementById('answersContent').innerHTML = answersHtml;
+            document.getElementById('feedback').classList.remove('active', 'correct', 'incorrect');
+            document.getElementById('btnNext').classList.remove('active');
+        }
+
+        function selectAnswer(selected, correct) {
+            if (answered) return;
+
+            answered = true;
+            const isCorrect = selected === correct;
+            if (isCorrect) score++;
+
+            const buttons = document.querySelectorAll('.answer-btn');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                const buttonAnswer = btn.onclick.toString().match(/'([a-d])'/)[1];
+                
+                if (buttonAnswer === correct) {
+                    btn.classList.add('correct');
+                } else if (buttonAnswer === selected && !isCorrect) {
+                    btn.classList.add('incorrect');
+                }
+            });
+
+            const feedback = document.getElementById('feedback');
+            feedback.classList.add('active', isCorrect ? 'correct' : 'incorrect');
+            feedback.innerHTML = isCorrect ? 
+                '✅ Correct!' : 
+                `❌ Wrong! Correct answer is: <strong>${correct.toUpperCase()}</strong>`;
+
+            document.getElementById('btnNext').classList.add('active');
+        }
+
+        function nextQuestion() {
+            currentQuestion++;
+            showQuestion();
+        }
+
+        function showResults() {
+            document.getElementById('quizContainer').classList.remove('active');
+            document.getElementById('results').classList.add('active');
+
+            const percentage = Math.round((score / questions.length) * 100);
+            document.getElementById('scoreDisplay').textContent = `${score}/${questions.length}`;
+            document.getElementById('scoreText').textContent = `Score: ${percentage}%`;
+        }
+    </script>
+</body>
+</html>
