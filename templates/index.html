@@ -1,171 +1,227 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quiz - General Knowledge</title>
-    <link rel="stylesheet" href="/static/index.css"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz — General Knowledge</title>
+  <link rel="stylesheet" href="/static/index.css">
 </head>
 <body>
+  <div class="app">
     <div class="container">
-        <h1>🎯 Quiz - General Knowledge</h1>
-        
-        <div class="input-section active">
-            <div class="input-group">
-                <label for="apiKey">OpenRouter API Key:</label>
-                <input type="text" id="apiKey" placeholder="sk-or-v1-..." value="">
-            </div>
-            
-            <div class="input-group">
-                <label for="modelSelect">Model:</label>
-                <input type="text" id="modelSelect" value="tngtech/deepseek-r1t2-chimera:free">
-            </div>
-            
-            <div class="input-group">
-                <label for="questionCount">Number of questions:</label>
-                <input type="number" id="questionCount" min="1" max="20" value="5">
-            </div>
-            
-            <button onclick="startQuiz()">Start the Quiz</button>
+      <header class="header">
+        <h1>Quiz</h1>
+        <p>General Knowledge — powered by AI</p>
+      </header>
+
+      <section class="card input-section active">
+        <div class="input-group">
+          <label for="apiKey">OpenRouter API Key</label>
+          <input type="text" id="apiKey" placeholder="sk-or-v1-..." value="" autocomplete="off">
         </div>
-
-        <div class="progress" id="progress"></div>
-
-        <div class="loading" id="loading" style="display: none;">⏳ Loading questions...</div>
-
-        <div class="question-container" id="quizContainer">
-            <div class="question" id="questionContent"></div>
-            <div class="answers" id="answersContent"></div>
-            <div class="feedback" id="feedback"></div>
-            <div class="buttons">
-                <button class="btn-next" id="btnNext" onclick="nextQuestion()">Next →</button>
-            </div>
+        <div class="input-group">
+          <label for="modelSelect">Model</label>
+          <input type="text" id="modelSelect" value="tngtech/deepseek-r1t2-chimera:free">
         </div>
-
-        <div class="results" id="results">
-            <h2>End of quiz!</h2>
-            <div class="score" id="scoreDisplay"></div>
-            <div class="score-text" id="scoreText"></div>
-            <button class="btn-restart active" onclick="location.reload()">Try again</button>
+        <div class="input-group">
+          <label for="questionCount">Number of questions</label>
+          <input type="number" id="questionCount" min="1" max="20" value="5">
         </div>
+        <button type="button" class="btn-primary" onclick="startQuiz()">Start quiz</button>
+      </section>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-text" id="progressText"></div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <div class="loading" id="loading">
+        <div class="loading-dots">
+          <span></span><span></span><span></span>
+        </div>
+        <span>Loading questions…</span>
+      </div>
+
+      <section class="question-container" id="quizContainer">
+        <div class="question-card">
+          <div class="question" id="questionContent"></div>
+        </div>
+        <div class="card">
+          <div class="answers" id="answersContent"></div>
+          <div class="feedback" id="feedback"></div>
+          <div class="quiz-actions">
+            <button type="button" class="btn-next" id="btnNext" onclick="nextQuestion()">
+              Next →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="results" id="results">
+        <div class="card">
+          <h2>End of quiz</h2>
+          <div class="score-circle" id="scoreDisplay"></div>
+          <div class="score-text" id="scoreText"></div>
+          <button type="button" class="btn-restart active" onclick="location.reload()">Try again</button>
+        </div>
+      </section>
     </div>
+  </div>
 
-    <script>
-        let questions = [];
-        let currentQuestion = 0;
-        let score = 0;
-        let answered = false;
+  <script>
+    let questions = [];
+    let currentQuestion = 0;
+    let score = 0;
+    let answered = false;
 
-        async function startQuiz() {
-            const count = parseInt(document.getElementById('questionCount').value) || 5;
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const model = document.getElementById('modelSelect').value;
-            
-            if (!apiKey) {
-                alert('Please provide API Key!');
-                return;
-            }
-            
-            document.querySelector('.input-section').classList.remove('active');
-            document.getElementById('loading').style.display = 'block';
+    async function startQuiz() {
+      const count = parseInt(document.getElementById('questionCount').value, 10) || 5;
+      const apiKey = document.getElementById('apiKey').value.trim();
+      const model = document.getElementById('modelSelect').value;
 
-            try {
-                const response = await fetch(`/api/questions/${count}?api_key=${encodeURIComponent(apiKey)}&model=${encodeURIComponent(model)}`);
-                const data = await response.json();
-                
-                if (data.error) {
-                    alert('Error: ' + data.error);
-                    document.querySelector('.input-section').classList.add('active');
-                    document.getElementById('loading').style.display = 'none';
-                    return;
-                }
-                
-                if (data.questions) {
-                    questions = data.questions;
-                    currentQuestion = 0;
-                    score = 0;
-                    answered = false;
-                    
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('quizContainer').classList.add('active');
-                    showQuestion();
-                } else {
-                    alert('Error: Failed to load questions');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error loading questions: ' + error.message);
-            }
+      if (!apiKey) {
+        alert('Please provide your API Key.');
+        return;
+      }
+
+      document.querySelector('.input-section').classList.remove('active');
+      document.getElementById('loading').classList.add('visible');
+
+      try {
+        const response = await fetch(
+          `/api/questions/${count}?api_key=${encodeURIComponent(apiKey)}&model=${encodeURIComponent(model)}`
+        );
+        const data = await response.json();
+
+        if (data.error) {
+          alert('Error: ' + data.error);
+          document.querySelector('.input-section').classList.add('active');
+          document.getElementById('loading').classList.remove('visible');
+          return;
         }
 
-        function showQuestion() {
-            if (currentQuestion >= questions.length) {
-                showResults();
-                return;
-            }
+        if (data.questions) {
+          questions = data.questions;
+          currentQuestion = 0;
+          score = 0;
+          answered = false;
 
-            const question = questions[currentQuestion];
-            answered = false;
-
-            document.getElementById('progress').textContent = 
-                `Question ${currentQuestion + 1} of ${questions.length}`;
-
-            document.getElementById('questionContent').innerHTML = 
-                `<h2>${question.question}</h2>`;
-
-            const answersHtml = Object.entries(question.answers)
-                .map(([key, value]) => 
-                    `<button class="answer-btn" onclick="selectAnswer('${key}', '${question.correct_answer}')">
-                        <strong>${key.toUpperCase()})</strong> ${value}
-                    </button>`
-                ).join('');
-
-            document.getElementById('answersContent').innerHTML = answersHtml;
-            document.getElementById('feedback').classList.remove('active', 'correct', 'incorrect');
-            document.getElementById('btnNext').classList.remove('active');
+          document.getElementById('loading').classList.remove('visible');
+          document.getElementById('progressWrap').classList.add('visible');
+          document.getElementById('quizContainer').classList.add('active');
+          showQuestion();
+        } else {
+          alert('Failed to load questions.');
         }
+      } catch (err) {
+        console.error(err);
+        alert('Error loading questions: ' + err.message);
+        document.querySelector('.input-section').classList.add('active');
+        document.getElementById('loading').classList.remove('visible');
+      }
+    }
 
-        function selectAnswer(selected, correct) {
-            if (answered) return;
+    function updateProgress() {
+      const total = questions.length;
+      const current = Math.min(currentQuestion + 1, total);
+      const pct = total ? (current / total) * 100 : 0;
 
-            answered = true;
-            const isCorrect = selected === correct;
-            if (isCorrect) score++;
+      document.getElementById('progressText').textContent = `Question ${current} of ${total}`;
+      document.getElementById('progressFill').style.width = pct + '%';
+    }
 
-            const buttons = document.querySelectorAll('.answer-btn');
-            buttons.forEach(btn => {
-                btn.disabled = true;
-                const buttonAnswer = btn.onclick.toString().match(/'([a-d])'/)[1];
-                
-                if (buttonAnswer === correct) {
-                    btn.classList.add('correct');
-                } else if (buttonAnswer === selected && !isCorrect) {
-                    btn.classList.add('incorrect');
-                }
-            });
+    function showQuestion() {
+      if (currentQuestion >= questions.length) {
+        showResults();
+        return;
+      }
 
-            const feedback = document.getElementById('feedback');
-            feedback.classList.add('active', isCorrect ? 'correct' : 'incorrect');
-            feedback.innerHTML = isCorrect ? 
-                '✅ Correct!' : 
-                `❌ Wrong! Correct answer is: <strong>${correct.toUpperCase()}</strong>`;
+      const question = questions[currentQuestion];
+      answered = false;
 
-            document.getElementById('btnNext').classList.add('active');
-        }
+      updateProgress();
 
-        function nextQuestion() {
-            currentQuestion++;
-            showQuestion();
-        }
+      document.getElementById('questionContent').innerHTML =
+        '<h2>' + escapeHtml(question.question) + '</h2>';
 
-        function showResults() {
-            document.getElementById('quizContainer').classList.remove('active');
-            document.getElementById('results').classList.add('active');
+      const answersHtml = Object.entries(question.answers)
+        .map(function (entry) {
+          const key = entry[0];
+          const value = entry[1];
+          return (
+            '<button type="button" class="answer-btn" data-answer="' + escapeAttr(key) + '" onclick="selectAnswer(this)">' +
+              '<span class="key">' + key.toUpperCase() + ')</span> ' +
+              '<span>' + escapeHtml(value) + '</span>' +
+            '</button>'
+          );
+        })
+        .join('');
 
-            const percentage = Math.round((score / questions.length) * 100);
-            document.getElementById('scoreDisplay').textContent = `${score}/${questions.length}`;
-            document.getElementById('scoreText').textContent = `Score: ${percentage}%`;
-        }
-    </script>
+      document.getElementById('answersContent').innerHTML = answersHtml;
+      document.getElementById('feedback').classList.remove('active', 'correct', 'incorrect');
+      document.getElementById('feedback').innerHTML = '';
+      document.getElementById('btnNext').classList.remove('active');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function escapeAttr(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function selectAnswer(btn) {
+      if (answered) return;
+
+      const selected = btn.getAttribute('data-answer');
+      const correct = questions[currentQuestion].correct_answer;
+
+      answered = true;
+      if (selected === correct) score++;
+
+      const buttons = document.querySelectorAll('.answer-btn');
+      buttons.forEach(function (b) {
+        b.disabled = true;
+        const key = b.getAttribute('data-answer');
+        if (key === correct) b.classList.add('correct');
+        else if (key === selected) b.classList.add('incorrect');
+      });
+
+      const feedback = document.getElementById('feedback');
+      feedback.classList.add('active', selected === correct ? 'correct' : 'incorrect');
+      feedback.innerHTML = selected === correct
+        ? '✓ Correct!'
+        : 'Wrong. Correct answer: <strong>' + correct.toUpperCase() + '</strong>';
+
+      document.getElementById('btnNext').classList.add('active');
+    }
+
+    function nextQuestion() {
+      currentQuestion++;
+      showQuestion();
+    }
+
+    function showResults() {
+      document.getElementById('quizContainer').classList.remove('active');
+      document.getElementById('progressWrap').classList.remove('visible');
+      document.getElementById('results').classList.add('active');
+
+      const total = questions.length;
+      const pct = total ? Math.round((score / total) * 100) : 0;
+
+      document.getElementById('scoreDisplay').textContent = score + '/' + total;
+      document.getElementById('scoreText').textContent = 'Score: ' + pct + '%';
+    }
+  </script>
 </body>
 </html>
